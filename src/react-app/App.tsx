@@ -151,6 +151,7 @@ function App() {
       }
       return updated;
     });
+    setGeneratedSuite(null); // Clear results when config changes
   }, []);
 
   const getTotalCases = useCallback(() => {
@@ -173,6 +174,7 @@ function App() {
 
   const applyQuickConfig = (cases: Map<TestCaseType, number>) => {
     setSelectedCases(new Map(cases));
+    setGeneratedSuite(null); // Clear results when config changes
   };
 
   const clearAll = () => {
@@ -227,7 +229,8 @@ function App() {
 
   const handleDownloadCSV = () => {
     if (!generatedSuite) return;
-    const filename = `bank_transactions_${generatedSuite.id.slice(0, 8)}.csv`;
+    const dateStr = new Date().toISOString().split('T')[0];
+    const filename = `${dateStr}_bank_transactions_${generatedSuite.direction}_${generatedSuite.id.slice(0, 8)}.csv`;
     downloadCSV(generatedSuite.csvContent, filename);
   };
 
@@ -235,7 +238,8 @@ function App() {
     if (!generatedSuite) return;
     const invoices = generatedSuite.cases.map((tc) => tc.invoice);
     const zipBlob = await generateAllInvoicesZip(invoices);
-    const filename = `invoices_${generatedSuite.id.slice(0, 8)}.zip`;
+    const dateStr = new Date().toISOString().split('T')[0];
+    const filename = `${dateStr}_invoices_${generatedSuite.direction}_${generatedSuite.id.slice(0, 8)}.zip`;
     downloadBlob(zipBlob, filename);
   };
 
@@ -256,7 +260,8 @@ function App() {
 
   const handleDownloadJSON = () => {
     if (!generatedSuite) return;
-    const filename = `test_suite_${generatedSuite.id.slice(0, 8)}.json`;
+    const dateStr = new Date().toISOString().split('T')[0];
+    const filename = `${dateStr}_test_suite_${generatedSuite.direction}_${generatedSuite.id.slice(0, 8)}.json`;
     downloadJSON(generatedSuite, filename);
   };
 
@@ -296,7 +301,8 @@ function App() {
         }
 
         const zipBlob = await zip.generateAsync({ type: 'blob' });
-        const filename = `test_suite_complete_${generatedSuite.id.slice(0, 8)}.zip`;
+        const dateStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+        const filename = `${dateStr}_test_suite_${generatedSuite.direction}_${generatedSuite.id.slice(0, 8)}.zip`;
 
         const url = URL.createObjectURL(zipBlob);
         const link = document.createElement('a');
@@ -361,7 +367,7 @@ function App() {
                 <div className="flex rounded-lg border border-slate-200 p-1 bg-slate-50">
                   <button
                     type="button"
-                    onClick={() => setDirection('payables')}
+                    onClick={() => { setDirection('payables'); setGeneratedSuite(null); }}
                     className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
                       direction === 'payables'
                         ? 'bg-white text-blue-600 shadow-sm border border-slate-200'
@@ -374,7 +380,7 @@ function App() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setDirection('receivables')}
+                    onClick={() => { setDirection('receivables'); setGeneratedSuite(null); }}
                     className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
                       direction === 'receivables'
                         ? 'bg-white text-green-600 shadow-sm border border-slate-200'
@@ -437,7 +443,7 @@ function App() {
                     id="start-date"
                     type="date"
                     value={dateRange.start}
-                    onChange={(e) => setDateRange((prev) => ({ ...prev, start: e.target.value }))}
+                    onChange={(e) => { setDateRange((prev) => ({ ...prev, start: e.target.value })); setGeneratedSuite(null); }}
                   />
                 </div>
                 <div className="space-y-1.5 flex-1">
@@ -448,7 +454,7 @@ function App() {
                     id="end-date"
                     type="date"
                     value={dateRange.end}
-                    onChange={(e) => setDateRange((prev) => ({ ...prev, end: e.target.value }))}
+                    onChange={(e) => { setDateRange((prev) => ({ ...prev, end: e.target.value })); setGeneratedSuite(null); }}
                   />
                 </div>
               </CardContent>

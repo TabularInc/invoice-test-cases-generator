@@ -1,108 +1,157 @@
+import { faker } from '@faker-js/faker';
 import { Company } from './types';
 
-// Realistic German/EU supplier data for test cases
-export const SUPPLIERS: Company[] = [
-  {
-    name: 'TechSolutions GmbH',
-    address: 'Hauptstraße 42, 80331 München, Germany',
-    phone: '+49 89 1234567',
-    email: 'billing@techsolutions.de',
-    website: 'www.techsolutions.de',
-    bankName: 'Deutsche Bank AG',
-    iban: 'DE89370400440532013000',
-    vatId: 'DE123456789',
-  },
-  {
-    name: 'Nordic Software AS',
-    address: 'Storgatan 15, 111 29 Stockholm, Sweden',
-    phone: '+46 8 123 456',
-    email: 'invoices@nordicsoftware.se',
-    website: 'www.nordicsoftware.se',
-    bankName: 'Nordea Bank',
-    iban: 'SE3550000000054910000003',
-    vatId: 'SE556677889901',
-  },
-  {
-    name: 'CloudServices B.V.',
-    address: 'Keizersgracht 123, 1015 CJ Amsterdam, Netherlands',
-    phone: '+31 20 123 4567',
-    email: 'finance@cloudservices.nl',
-    website: 'www.cloudservices.nl',
-    bankName: 'ING Bank N.V.',
-    iban: 'NL91ABNA0417164300',
-    vatId: 'NL123456789B01',
-  },
-  {
-    name: 'DataPro Solutions Ltd',
-    address: '100 Liverpool Street, London EC2M 2RH, UK',
-    phone: '+44 20 7946 0958',
-    email: 'accounts@datapro.co.uk',
-    website: 'www.datapro.co.uk',
-    bankName: 'Barclays Bank',
-    iban: 'GB82WEST12345698765432',
-    vatId: 'GB123456789',
-  },
-  {
-    name: 'Logistik Express AG',
-    address: 'Bahnhofstraße 88, 8001 Zürich, Switzerland',
-    phone: '+41 44 123 45 67',
-    email: 'billing@logistik-express.ch',
-    website: 'www.logistik-express.ch',
-    bankName: 'UBS AG',
-    iban: 'CH9300762011623852957',
-    vatId: 'CHE-123.456.789',
-  },
-  {
-    name: 'MediSupply SpA',
-    address: 'Via Roma 45, 20121 Milano, Italy',
-    phone: '+39 02 1234 5678',
-    email: 'fatture@medisupply.it',
-    website: 'www.medisupply.it',
-    bankName: 'UniCredit S.p.A.',
-    iban: 'IT60X0542811101000000123456',
-    vatId: 'IT12345678901',
-  },
-  {
-    name: 'Bürobedarf Schmidt KG',
-    address: 'Friedrichstraße 200, 10117 Berlin, Germany',
-    phone: '+49 30 987 6543',
-    email: 'rechnung@buerobedarf-schmidt.de',
-    website: 'www.buerobedarf-schmidt.de',
-    bankName: 'Commerzbank AG',
-    iban: 'DE75512108001245126199',
-    vatId: 'DE234567890',
-  },
-  {
-    name: 'EuroTech Components S.A.',
-    address: 'Rue de la Loi 175, 1048 Bruxelles, Belgium',
-    phone: '+32 2 123 45 67',
-    email: 'comptabilite@eurotech.be',
-    website: 'www.eurotech.be',
-    bankName: 'BNP Paribas Fortis',
-    iban: 'BE68539007547034',
-    vatId: 'BE0123456789',
-  },
-  {
-    name: 'Digital Marketing Pro S.L.',
-    address: 'Calle Gran Vía 28, 28013 Madrid, Spain',
-    phone: '+34 91 123 4567',
-    email: 'facturacion@digitalmarketing.es',
-    website: 'www.digitalmarketingpro.es',
-    bankName: 'Banco Santander',
-    iban: 'ES9121000418450200051332',
-    vatId: 'ESB12345678',
-  },
-  {
-    name: 'PrintMaster Oy',
-    address: 'Mannerheimintie 12, 00100 Helsinki, Finland',
-    phone: '+358 9 123 4567',
-    email: 'laskutus@printmaster.fi',
-    website: 'www.printmaster.fi',
-    bankName: 'Nordea Bank Finland',
-    iban: 'FI2112345600000785',
-    vatId: 'FI12345678',
-  },
+// European country configurations for realistic company data
+const EU_COUNTRIES = [
+  { code: 'DE', locale: 'de', suffix: ['GmbH', 'AG', 'KG'], vatPrefix: 'DE', ibanPrefix: 'DE', bankNames: ['Deutsche Bank AG', 'Commerzbank AG', 'DZ Bank AG'] },
+  { code: 'NL', locale: 'nl', suffix: ['B.V.', 'N.V.'], vatPrefix: 'NL', ibanPrefix: 'NL', bankNames: ['ING Bank N.V.', 'ABN AMRO', 'Rabobank'] },
+  { code: 'GB', locale: 'en_GB', suffix: ['Ltd', 'PLC'], vatPrefix: 'GB', ibanPrefix: 'GB', bankNames: ['Barclays Bank', 'HSBC UK', 'Lloyds Bank'] },
+  { code: 'FR', locale: 'fr', suffix: ['S.A.', 'S.A.R.L.', 'SAS'], vatPrefix: 'FR', ibanPrefix: 'FR', bankNames: ['BNP Paribas', 'Crédit Agricole', 'Société Générale'] },
+  { code: 'IT', locale: 'it', suffix: ['SpA', 'S.r.l.'], vatPrefix: 'IT', ibanPrefix: 'IT', bankNames: ['UniCredit S.p.A.', 'Intesa Sanpaolo', 'Banca Monte dei Paschi'] },
+  { code: 'ES', locale: 'es', suffix: ['S.A.', 'S.L.'], vatPrefix: 'ES', ibanPrefix: 'ES', bankNames: ['Banco Santander', 'BBVA', 'CaixaBank'] },
+  { code: 'SE', locale: 'sv', suffix: ['AB', 'AS'], vatPrefix: 'SE', ibanPrefix: 'SE', bankNames: ['Nordea Bank', 'SEB', 'Swedbank'] },
+  { code: 'CH', locale: 'de_CH', suffix: ['AG', 'GmbH', 'SA'], vatPrefix: 'CHE', ibanPrefix: 'CH', bankNames: ['UBS AG', 'Credit Suisse', 'Zürcher Kantonalbank'] },
+  { code: 'BE', locale: 'nl_BE', suffix: ['S.A.', 'N.V.', 'SPRL'], vatPrefix: 'BE', ibanPrefix: 'BE', bankNames: ['BNP Paribas Fortis', 'KBC Bank', 'Belfius'] },
+  { code: 'AT', locale: 'de_AT', suffix: ['GmbH', 'AG'], vatPrefix: 'ATU', ibanPrefix: 'AT', bankNames: ['Erste Bank', 'Raiffeisen Bank', 'Bank Austria'] },
 ];
+
+// Business word components for company names
+const BUSINESS_PREFIXES = [
+  'Tech', 'Data', 'Cloud', 'Digital', 'Smart', 'Euro', 'Global', 'Pro', 'Net', 'Sys',
+  'Info', 'Cyber', 'Logic', 'Soft', 'Web', 'Auto', 'Bio', 'Eco', 'Med', 'Fin',
+];
+
+const BUSINESS_SUFFIXES = [
+  'Solutions', 'Systems', 'Services', 'Tech', 'Soft', 'Pro', 'Labs', 'Works', 'Group', 'Corp',
+  'Dynamics', 'Logic', 'Ware', 'Net', 'Link', 'Hub', 'Base', 'Core', 'Wave', 'Flow',
+];
+
+const BUSINESS_INDUSTRIES = [
+  'Software', 'Consulting', 'Logistics', 'Marketing', 'Finance', 'Engineering', 'Supply', 'Print',
+  'Medical', 'Office', 'Security', 'Analytics', 'Automation', 'Integration', 'Components',
+];
+
+// Generate a realistic business name
+function generateBusinessName(): string {
+  const style = faker.number.int({ min: 0, max: 3 });
+
+  switch (style) {
+    case 0:
+      // Prefix + Suffix style: "TechSolutions", "DataPro"
+      return faker.helpers.arrayElement(BUSINESS_PREFIXES) + faker.helpers.arrayElement(BUSINESS_SUFFIXES);
+    case 1:
+      // Industry + descriptor: "Nordic Software", "Digital Marketing"
+      return faker.helpers.arrayElement(['Nordic', 'Euro', 'Global', 'Prime', 'Alpha', 'Delta']) + ' ' +
+             faker.helpers.arrayElement(BUSINESS_INDUSTRIES);
+    case 2:
+      // Name + Industry: "Schmidt Logistics", "Mueller Tech"
+      return faker.person.lastName() + ' ' + faker.helpers.arrayElement(BUSINESS_INDUSTRIES);
+    default:
+      // Combined: "CloudServices", "DataPro Solutions"
+      return faker.helpers.arrayElement(BUSINESS_PREFIXES) + faker.helpers.arrayElement(BUSINESS_INDUSTRIES);
+  }
+}
+
+// Generate name variations for a company
+function generateNameVariations(baseName: string, legalSuffix: string): string[] {
+  const fullName = `${baseName} ${legalSuffix}`;
+  const variations: string[] = [];
+
+  // Uppercase full name
+  variations.push(fullName.toUpperCase());
+
+  // Without legal suffix
+  variations.push(baseName);
+
+  // Uppercase without suffix
+  variations.push(baseName.toUpperCase());
+
+  // Abbreviated (first letters of each word + legal suffix)
+  const abbrev = baseName.split(/(?=[A-Z])|\s+/).map(w => w[0]).join('').toUpperCase();
+  if (abbrev.length >= 2) {
+    variations.push(abbrev);
+    variations.push(`${abbrev} ${legalSuffix}`);
+  }
+
+  // With spaces between camelCase
+  const spaced = baseName.replace(/([a-z])([A-Z])/g, '$1 $2');
+  if (spaced !== baseName) {
+    variations.push(spaced);
+    variations.push(`${spaced} ${legalSuffix}`);
+  }
+
+  // Remove periods from legal suffix
+  const cleanSuffix = legalSuffix.replace(/\./g, '');
+  if (cleanSuffix !== legalSuffix) {
+    variations.push(`${baseName} ${cleanSuffix}`);
+  }
+
+  // Sometimes banks truncate to first N characters
+  if (baseName.length > 10) {
+    variations.push(baseName.substring(0, 10).toUpperCase());
+  }
+
+  return [...new Set(variations)]; // Remove duplicates
+}
+
+// Generate a random supplier company
+export function generateCompany(): Company & { nameVariations: string[] } {
+  const country = faker.helpers.arrayElement(EU_COUNTRIES);
+  const baseName = generateBusinessName();
+  const legalSuffix = faker.helpers.arrayElement(country.suffix);
+  const fullName = `${baseName} ${legalSuffix}`;
+
+  return {
+    name: fullName,
+    address: `${faker.location.streetAddress()}, ${faker.location.zipCode()} ${faker.location.city()}, ${country.code}`,
+    phone: faker.phone.number(),
+    email: faker.internet.email({ firstName: 'billing', lastName: baseName.toLowerCase().replace(/\s+/g, '') }),
+    website: `www.${baseName.toLowerCase().replace(/\s+/g, '')}.${country.code.toLowerCase()}`,
+    bankName: faker.helpers.arrayElement(country.bankNames),
+    iban: faker.finance.iban({ countryCode: country.ibanPrefix as any }),
+    vatId: `${country.vatPrefix}${faker.string.numeric(9)}`,
+    nameVariations: generateNameVariations(baseName, legalSuffix),
+  };
+}
+
+// Get a random supplier (generates a new one each time for variety)
+export function getRandomSupplier(): Company & { nameVariations: string[] } {
+  return generateCompany();
+}
+
+// Get a random name variation for a company (for bank transaction descriptions)
+export function getRandomNameVariation(company: Company & { nameVariations?: string[] }): string {
+  // 40% chance to use the original name
+  if (Math.random() < 0.4) {
+    return company.name;
+  }
+
+  // Check if company has variations
+  if (company.nameVariations && company.nameVariations.length > 0) {
+    return faker.helpers.arrayElement(company.nameVariations);
+  }
+
+  // Fallback: generate a simple variation on the fly
+  return generateSimpleVariation(company.name);
+}
+
+// Generate simple name variations for companies without predefined ones
+function generateSimpleVariation(name: string): string {
+  const variationType = faker.number.int({ min: 0, max: 4 });
+
+  switch (variationType) {
+    case 0:
+      return name.toUpperCase();
+    case 1:
+      return name.split(' ')[0]; // First word only
+    case 2:
+      return name.replace(/\s+(GmbH|Ltd|AG|B\.V\.|S\.A\.|SpA|KG|Oy|AS|S\.L\.|AB|N\.V\.|PLC|S\.r\.l\.|S\.A\.R\.L\.|SAS|SPRL)$/i, '').trim();
+    case 3:
+      return name.replace(/\./g, ''); // Remove periods
+    default:
+      return name.split(' ').slice(0, 2).join(' '); // First two words
+  }
+}
 
 // Products/Services for invoice items
 export const PRODUCTS = [
@@ -123,6 +172,39 @@ export const PRODUCTS = [
   { name: 'Domain Registration (per year)', basePrice: 25, category: 'hosting' },
 ];
 
+// Generate a random product with faker-enhanced variety
+export function generateProduct() {
+  // 70% chance to use predefined products, 30% chance to generate new one
+  if (Math.random() < 0.7) {
+    return faker.helpers.arrayElement(PRODUCTS);
+  }
+
+  const categories = ['software', 'services', 'hardware', 'supplies', 'support'];
+  const category = faker.helpers.arrayElement(categories);
+
+  const productNames: Record<string, () => string> = {
+    software: () => `${faker.hacker.adjective()} ${faker.hacker.noun()} License`,
+    services: () => `${faker.company.buzzAdjective()} ${faker.company.buzzNoun()} Services`,
+    hardware: () => `${faker.commerce.productAdjective()} ${faker.commerce.product()}`,
+    supplies: () => `${faker.commerce.productAdjective()} Office ${faker.commerce.product()}`,
+    support: () => `${faker.company.buzzAdjective()} Support Package`,
+  };
+
+  return {
+    name: productNames[category](),
+    basePrice: faker.number.int({ min: 50, max: 5000 }),
+    category,
+  };
+}
+
+export function getRandomProducts(count: number = 3) {
+  const products = [];
+  for (let i = 0; i < count; i++) {
+    products.push(generateProduct());
+  }
+  return products;
+}
+
 // Generic transaction descriptions for partial matches
 export const GENERIC_DESCRIPTIONS = [
   'Payment',
@@ -137,15 +219,6 @@ export const GENERIC_DESCRIPTIONS = [
   'International Payment',
 ];
 
-export function getRandomSupplier(): Company {
-  return SUPPLIERS[Math.floor(Math.random() * SUPPLIERS.length)];
-}
-
-export function getRandomProducts(count: number = 3) {
-  const shuffled = [...PRODUCTS].sort(() => 0.5 - Math.random());
-  return shuffled.slice(0, Math.min(count, PRODUCTS.length));
-}
-
 export function getRandomGenericDescription(): string {
-  return GENERIC_DESCRIPTIONS[Math.floor(Math.random() * GENERIC_DESCRIPTIONS.length)];
+  return faker.helpers.arrayElement(GENERIC_DESCRIPTIONS);
 }

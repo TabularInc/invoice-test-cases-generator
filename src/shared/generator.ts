@@ -14,6 +14,7 @@ import {
   getRandomSupplier,
   getRandomProducts,
   getRandomGenericDescription,
+  getRandomNameVariation,
 } from './suppliers';
 
 // Default company (used as customer for payables, as supplier for receivables)
@@ -152,7 +153,8 @@ function generateTransaction(
   // For payables: counterparty is the supplier (we pay them)
   // For receivables: counterparty is the customer (they pay us)
   const counterpartyCompany = direction === 'payables' ? invoice.supplier : invoice.customer;
-  counterparty = counterpartyCompany.name.toUpperCase().replace('GMBH', 'GMBH').replace('Ltd', 'LTD');
+  // Use random name variation for more realistic bank transaction matching scenarios
+  counterparty = getRandomNameVariation(counterpartyCompany);
 
   // Amount sign: negative for payables (money out), positive for receivables (money in)
   const amountSign = direction === 'payables' ? -1 : 1;
@@ -345,9 +347,9 @@ function generateGroupPaymentTestCase(
   const invoiceNumbers = invoices.map(inv => inv.number).join(', ');
   const description = `Batch Payment: ${invoiceNumbers}`;
 
-  // Format counterparty name
+  // Format counterparty name with random variation
   const counterpartyCompany = direction === 'payables' ? supplier : customer;
-  const counterparty = counterpartyCompany.name.toUpperCase().replace('GMBH', 'GMBH').replace('Ltd', 'LTD');
+  const counterparty = getRandomNameVariation(counterpartyCompany);
 
   const transaction: BankTransaction = {
     date: formatDate(transactionDate),
