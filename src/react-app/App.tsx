@@ -32,6 +32,7 @@ import {
   Loader2,
   RotateCcw,
   Sparkles,
+  Calendar,
 } from 'lucide-react';
 
 type TestCaseCategory = 'matches' | 'discounts' | 'fx' | 'partial';
@@ -302,12 +303,14 @@ function App() {
       <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-xl">
         <div className="container mx-auto flex items-center justify-between gap-4 px-6 py-4">
           <div className="flex items-center gap-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-blue-600 shadow-lg shadow-primary/25">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 shadow-lg shadow-blue-500/25">
               <FileText className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-semibold tracking-tight">Invoice Test Cases Generator</h1>
-              <p className="text-sm text-muted-foreground">
+              <h1 className="text-xl font-semibold tracking-tight text-slate-900">
+                Invoice Test Cases Generator
+              </h1>
+              <p className="text-sm text-slate-500">
                 Generate matching bank transactions & invoices for AI testing
               </p>
             </div>
@@ -322,15 +325,16 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-6 py-8">
-        <div className="grid gap-6 lg:grid-cols-[1fr_400px]">
-          {/* Left Column - Configuration */}
-          <div className="space-y-6">
+      <main className="container mx-auto px-6 py-8 space-y-8">
+        {/* Configuration Section */}
+        <section className="space-y-6">
+          {/* Quick Config + Date Range Row */}
+          <div className="grid gap-6 lg:grid-cols-[1fr_auto]">
             {/* Quick Config */}
             <Card>
-              <CardHeader className="pb-3">
+              <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-2 text-lg">
-                  <Sparkles className="h-5 w-5 text-primary" />
+                  <Sparkles className="h-5 w-5 text-blue-600" />
                   Quick Configurations
                 </CardTitle>
                 <CardDescription>Click to quickly set up common test scenarios</CardDescription>
@@ -344,346 +348,326 @@ function App() {
                       variant="outline"
                       size="sm"
                       onClick={() => applyQuickConfig(config.cases)}
-                      className="h-auto flex-col items-start gap-0 px-3 py-2"
+                      className="h-auto flex-col items-start gap-0 px-4 py-2 hover:bg-blue-50 hover:border-blue-200"
                     >
-                      <span className="font-medium">{config.label}</span>
-                      <span className="text-xs text-muted-foreground">{config.description}</span>
+                      <span className="font-medium text-slate-700">{config.label}</span>
+                      <span className="text-xs text-slate-500">{config.description}</span>
                     </Button>
                   ))}
                 </div>
               </CardContent>
             </Card>
 
-            {/* Date Range & Test Cases in a row on larger screens */}
-            <div className="grid gap-6 xl:grid-cols-[200px_1fr]">
-              {/* Date Range */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Date Range</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="start-date" className="text-xs">
-                      Start Date
-                    </Label>
-                    <Input
-                      id="start-date"
-                      type="date"
-                      value={dateRange.start}
-                      onChange={(e) => setDateRange((prev) => ({ ...prev, start: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="end-date" className="text-xs">
-                      End Date
-                    </Label>
-                    <Input
-                      id="end-date"
-                      type="date"
-                      value={dateRange.end}
-                      onChange={(e) => setDateRange((prev) => ({ ...prev, end: e.target.value }))}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Test Case Types */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Test Case Types</CardTitle>
-                  <CardDescription>Select quantities for each test case type</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {(Object.keys(TEST_CASE_CATEGORIES) as TestCaseCategory[]).map((category) => (
-                    <div key={category} className="space-y-3">
-                      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                        {CATEGORY_LABELS[category]}
-                      </h3>
-                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                        {TEST_CASE_CATEGORIES[category].map((type) => {
-                          const config = TEST_CASE_CONFIGS[type];
-                          const quantity = selectedCases.get(type) || 0;
-                          return (
-                            <div
-                              key={type}
-                              className={`flex items-center justify-between gap-2 rounded-lg border p-2 transition-all ${
-                                quantity > 0
-                                  ? 'border-primary/50 bg-primary/5'
-                                  : 'hover:border-muted-foreground/30'
-                              }`}
-                            >
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm font-medium truncate" title={config.label}>
-                                  {config.label}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7"
-                                  onClick={() => updateCaseQuantity(type, quantity - 1)}
-                                  disabled={quantity <= 0}
-                                >
-                                  <Minus className="h-3 w-3" />
-                                </Button>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  value={quantity}
-                                  onChange={(e) =>
-                                    updateCaseQuantity(type, parseInt(e.target.value) || 0)
-                                  }
-                                  className="h-7 w-12 text-center text-sm px-1"
-                                />
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7"
-                                  onClick={() => updateCaseQuantity(type, quantity + 1)}
-                                >
-                                  <Plus className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Generate Button */}
-            <Card>
-              <CardContent className="flex items-center justify-between gap-4 p-4">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-muted-foreground text-sm">Total:</span>
-                  <span className="text-2xl font-bold text-primary">{getTotalCases()}</span>
-                  <span className="text-muted-foreground text-sm">test cases</span>
+            {/* Date Range */}
+            <Card className="lg:w-64">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Calendar className="h-5 w-5 text-blue-600" />
+                  Date Range
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex gap-4 lg:flex-col">
+                <div className="space-y-1.5 flex-1">
+                  <Label htmlFor="start-date" className="text-xs text-slate-500">
+                    Start Date
+                  </Label>
+                  <Input
+                    id="start-date"
+                    type="date"
+                    value={dateRange.start}
+                    onChange={(e) => setDateRange((prev) => ({ ...prev, start: e.target.value }))}
+                  />
                 </div>
-                <Button
-                  type="button"
-                  size="lg"
-                  onClick={handleGenerate}
-                  disabled={isGenerating || getTotalCases() === 0}
-                  className="gap-2"
-                >
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="h-4 w-4" />
-                      Generate Test Cases
-                    </>
-                  )}
-                </Button>
+                <div className="space-y-1.5 flex-1">
+                  <Label htmlFor="end-date" className="text-xs text-slate-500">
+                    End Date
+                  </Label>
+                  <Input
+                    id="end-date"
+                    type="date"
+                    value={dateRange.end}
+                    onChange={(e) => setDateRange((prev) => ({ ...prev, end: e.target.value }))}
+                  />
+                </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Right Column - Results */}
-          <div className="space-y-6">
-            {/* Download Options - Always visible when results exist */}
-            {generatedSuite ? (
-              <>
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg">Downloads</CardTitle>
-                    <CardDescription>{generatedSuite.cases.length} test cases generated</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
+          {/* Test Case Types */}
+          <Card>
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg">Test Case Types</CardTitle>
+                  <CardDescription>Select quantities for each test case type</CardDescription>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-sm text-slate-500">Total:</span>
+                    <span className="text-2xl font-bold text-blue-600">{getTotalCases()}</span>
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={handleGenerate}
+                    disabled={isGenerating || getTotalCases() === 0}
+                    className="gap-2 bg-blue-600 hover:bg-blue-700"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="h-4 w-4" />
+                        Generate
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+                {(Object.keys(TEST_CASE_CATEGORIES) as TestCaseCategory[]).map((category) => (
+                  <div key={category} className="space-y-3">
+                    <h3 className="text-sm font-semibold text-slate-700 border-b pb-2">
+                      {CATEGORY_LABELS[category]}
+                    </h3>
+                    <div className="space-y-2">
+                      {TEST_CASE_CATEGORIES[category].map((type) => {
+                        const config = TEST_CASE_CONFIGS[type];
+                        const quantity = selectedCases.get(type) || 0;
+                        return (
+                          <div
+                            key={type}
+                            className={`flex items-center justify-between gap-2 rounded-lg border p-2.5 transition-all ${
+                              quantity > 0
+                                ? 'border-blue-200 bg-blue-50/50'
+                                : 'border-slate-200 hover:border-slate-300'
+                            }`}
+                          >
+                            <p className="text-sm text-slate-700 truncate flex-1" title={config.label}>
+                              {config.label}
+                            </p>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-slate-500 hover:text-slate-700"
+                                onClick={() => updateCaseQuantity(type, quantity - 1)}
+                                disabled={quantity <= 0}
+                              >
+                                <Minus className="h-3 w-3" />
+                              </Button>
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={quantity}
+                                onChange={(e) =>
+                                  updateCaseQuantity(type, parseInt(e.target.value) || 0)
+                                }
+                                className="h-7 w-12 text-center text-sm px-1 border-slate-200"
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-slate-500 hover:text-slate-700"
+                                onClick={() => updateCaseQuantity(type, quantity + 1)}
+                              >
+                                <Plus className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* Results Section */}
+        {generatedSuite ? (
+          <section className="space-y-6">
+            {/* Results Header with Downloads */}
+            <Card>
+              <CardContent className="py-4">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-slate-900">
+                      Generated Results
+                    </h2>
+                    <p className="text-sm text-slate-500">
+                      {generatedSuite.cases.length} test cases ready for download
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       type="button"
                       onClick={handleDownloadAll}
                       disabled={isDownloading}
-                      className="w-full gap-2 h-auto py-3"
+                      className="gap-2 bg-blue-600 hover:bg-blue-700"
                     >
                       {isDownloading ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <Package className="h-4 w-4" />
                       )}
-                      <div className="text-left">
-                        <div className="font-medium">
-                          {isDownloading ? 'Generating...' : 'Download Bundle'}
-                        </div>
-                        <div className="text-xs opacity-80">CSV + PDFs + JSON</div>
-                      </div>
+                      {isDownloading ? 'Generating...' : 'Download Bundle'}
                     </Button>
-                    <div className="grid grid-cols-3 gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleDownloadCSV}
-                        className="gap-1 text-xs"
-                      >
-                        <FileSpreadsheet className="h-3 w-3" />
-                        CSV
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleDownloadAllPDFs}
-                        className="gap-1 text-xs"
-                      >
-                        <FolderArchive className="h-3 w-3" />
-                        PDFs
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleDownloadJSON}
-                        className="gap-1 text-xs"
-                      >
-                        <Code className="h-3 w-3" />
-                        JSON
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* CSV Preview */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg">CSV Preview</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="rounded-lg border bg-muted/50 p-3 overflow-x-auto max-h-48">
-                      <pre className="text-[10px] text-muted-foreground font-mono whitespace-pre">
-                        {generatedSuite.csvContent}
-                      </pre>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Test Cases List */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg">
-                      Test Cases ({generatedSuite.cases.length})
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2 max-h-[500px] overflow-y-auto">
-                    {generatedSuite.cases.map((tc) => (
-                      <Collapsible
-                        key={tc.id}
-                        open={expandedCases.has(tc.id)}
-                        onOpenChange={() => toggleExpanded(tc.id)}
-                      >
-                        <div className="rounded-lg border overflow-hidden">
-                          <CollapsibleTrigger asChild>
-                            <button className="flex w-full items-center gap-3 p-3 text-left hover:bg-muted/50 transition-colors">
-                              <div className="flex-1 min-w-0">
-                                <Badge variant={getBadgeVariant(tc.type)} className="text-[10px] mb-1">
-                                  {TEST_CASE_CONFIGS[tc.type].label}
-                                </Badge>
-                                <p className="text-sm font-medium truncate">{tc.invoice.number}</p>
-                                <p className="text-xs text-muted-foreground truncate">
-                                  {tc.invoice.supplier.name}
-                                </p>
-                              </div>
-                              <div className="text-right shrink-0">
-                                <div className="text-sm font-mono font-medium">
-                                  €{tc.invoice.total.toFixed(2)}
-                                </div>
-                                {tc.metadata.adjustedAmount !== tc.invoice.total && (
-                                  <div className="text-xs font-mono text-amber-500">
-                                    → €{Math.abs(tc.transaction.amount_eur).toFixed(2)}
-                                  </div>
-                                )}
-                              </div>
-                              <ChevronDown
-                                className={`h-4 w-4 text-muted-foreground transition-transform shrink-0 ${
-                                  expandedCases.has(tc.id) ? 'rotate-180' : ''
-                                }`}
-                              />
-                            </button>
-                          </CollapsibleTrigger>
-                          <CollapsibleContent>
-                            <div className="border-t px-3 py-3 space-y-3 bg-muted/30">
-                              <div className="grid grid-cols-2 gap-3 text-xs">
-                                <div>
-                                  <p className="font-semibold text-muted-foreground mb-1">Invoice</p>
-                                  <p>Date: {tc.invoice.date}</p>
-                                  <p>Due: {tc.invoice.dueDate}</p>
-                                </div>
-                                <div>
-                                  <p className="font-semibold text-muted-foreground mb-1">Transaction</p>
-                                  <p>Date: {tc.transaction.date}</p>
-                                  <p className="truncate" title={tc.transaction.description}>
-                                    {tc.transaction.description}
-                                  </p>
-                                </div>
-                              </div>
-
-                              <div className="flex flex-wrap gap-1">
-                                {tc.metadata.matchingFields.map((field) => (
-                                  <Badge key={field} variant="success" className="text-[10px]">
-                                    {field}
-                                  </Badge>
-                                ))}
-                                {tc.metadata.mismatchedFields.map((field) => (
-                                  <Badge key={field} variant="warning" className="text-[10px]">
-                                    {field}
-                                  </Badge>
-                                ))}
-                              </div>
-
-                              {tc.metadata.adjustmentReason && (
-                                <p className="text-xs text-muted-foreground">
-                                  {tc.metadata.adjustmentReason}
-                                </p>
-                              )}
-
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDownloadSinglePDF(tc.id);
-                                }}
-                                className="w-full gap-2 text-xs"
-                              >
-                                <FileText className="h-3 w-3" />
-                                Download PDF
-                              </Button>
-                            </div>
-                          </CollapsibleContent>
-                        </div>
-                      </Collapsible>
-                    ))}
-                  </CardContent>
-                </Card>
-              </>
-            ) : (
-              <Card className="h-full min-h-[400px] flex items-center justify-center bg-slate-50/50">
-                <CardContent className="text-center py-12">
-                  <div className="mx-auto w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-4">
-                    <FileText className="h-6 w-6 text-slate-400" />
+                    <Button type="button" variant="outline" onClick={handleDownloadCSV} className="gap-2">
+                      <FileSpreadsheet className="h-4 w-4" />
+                      CSV
+                    </Button>
+                    <Button type="button" variant="outline" onClick={handleDownloadAllPDFs} className="gap-2">
+                      <FolderArchive className="h-4 w-4" />
+                      PDFs
+                    </Button>
+                    <Button type="button" variant="outline" onClick={handleDownloadJSON} className="gap-2">
+                      <Code className="h-4 w-4" />
+                      JSON
+                    </Button>
                   </div>
-                  <p className="text-slate-600">
-                    Configure test cases and click Generate
-                  </p>
-                  <p className="text-sm text-slate-400 mt-1">
-                    Results will appear here
-                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* CSV Preview and Test Cases Grid */}
+            <div className="grid gap-6 lg:grid-cols-2">
+              {/* CSV Preview */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">CSV Preview</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 overflow-x-auto max-h-[400px]">
+                    <pre className="text-xs text-slate-600 font-mono whitespace-pre">
+                      {generatedSuite.csvContent}
+                    </pre>
+                  </div>
                 </CardContent>
               </Card>
-            )}
-          </div>
-        </div>
+
+              {/* Test Cases List */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">
+                    Test Cases ({generatedSuite.cases.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 max-h-[400px] overflow-y-auto">
+                  {generatedSuite.cases.map((tc) => (
+                    <Collapsible
+                      key={tc.id}
+                      open={expandedCases.has(tc.id)}
+                      onOpenChange={() => toggleExpanded(tc.id)}
+                    >
+                      <div className="rounded-lg border border-slate-200 overflow-hidden bg-white">
+                        <CollapsibleTrigger asChild>
+                          <button className="flex w-full items-center gap-3 p-3 text-left hover:bg-slate-50 transition-colors">
+                            <div className="flex-1 min-w-0">
+                              <Badge variant={getBadgeVariant(tc.type)} className="text-[10px] mb-1">
+                                {TEST_CASE_CONFIGS[tc.type].label}
+                              </Badge>
+                              <p className="text-sm font-medium text-slate-900 truncate">
+                                {tc.invoice.number}
+                              </p>
+                              <p className="text-xs text-slate-500 truncate">
+                                {tc.invoice.supplier.name}
+                              </p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <div className="text-sm font-mono font-medium text-slate-900">
+                                €{tc.invoice.total.toFixed(2)}
+                              </div>
+                              {tc.metadata.adjustedAmount !== tc.invoice.total && (
+                                <div className="text-xs font-mono text-amber-600">
+                                  → €{Math.abs(tc.transaction.amount_eur).toFixed(2)}
+                                </div>
+                              )}
+                            </div>
+                            <ChevronDown
+                              className={`h-4 w-4 text-slate-400 transition-transform shrink-0 ${
+                                expandedCases.has(tc.id) ? 'rotate-180' : ''
+                              }`}
+                            />
+                          </button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <div className="border-t border-slate-100 px-3 py-3 space-y-3 bg-slate-50">
+                            <div className="grid grid-cols-2 gap-4 text-xs">
+                              <div>
+                                <p className="font-semibold text-slate-500 mb-1">Invoice</p>
+                                <p className="text-slate-700">Date: {tc.invoice.date}</p>
+                                <p className="text-slate-700">Due: {tc.invoice.dueDate}</p>
+                              </div>
+                              <div>
+                                <p className="font-semibold text-slate-500 mb-1">Transaction</p>
+                                <p className="text-slate-700">Date: {tc.transaction.date}</p>
+                                <p className="text-slate-700 truncate" title={tc.transaction.description}>
+                                  {tc.transaction.description}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex flex-wrap gap-1">
+                              {tc.metadata.matchingFields.map((field) => (
+                                <Badge key={field} variant="success" className="text-[10px]">
+                                  {field}
+                                </Badge>
+                              ))}
+                              {tc.metadata.mismatchedFields.map((field) => (
+                                <Badge key={field} variant="warning" className="text-[10px]">
+                                  {field}
+                                </Badge>
+                              ))}
+                            </div>
+
+                            {tc.metadata.adjustmentReason && (
+                              <p className="text-xs text-slate-500">{tc.metadata.adjustmentReason}</p>
+                            )}
+
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownloadSinglePDF(tc.id);
+                              }}
+                              className="w-full gap-2 text-xs"
+                            >
+                              <FileText className="h-3 w-3" />
+                              Download PDF
+                            </Button>
+                          </div>
+                        </CollapsibleContent>
+                      </div>
+                    </Collapsible>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+          </section>
+        ) : (
+          <Card className="border-dashed border-2 border-slate-200 bg-slate-50/50">
+            <CardContent className="py-16 text-center">
+              <div className="mx-auto w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
+                <FileText className="h-8 w-8 text-slate-400" />
+              </div>
+              <p className="text-slate-600 font-medium">No test cases generated yet</p>
+              <p className="text-sm text-slate-400 mt-1">
+                Select a quick configuration or customize your test cases above, then click Generate
+              </p>
+            </CardContent>
+          </Card>
+        )}
       </main>
     </div>
   );
