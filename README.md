@@ -1,90 +1,130 @@
-# React + Vite + Hono + Cloudflare Workers
+# Invoice Test Cases Generator
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cloudflare/templates/tree/main/vite-react-template)
+A powerful tool for generating test cases to validate invoice-to-bank-transaction matching AI systems. Generate realistic bank transaction CSVs and corresponding invoice PDFs with various matching scenarios.
 
-This template provides a minimal setup for building a React application with TypeScript and Vite, designed to run on Cloudflare Workers. It features hot module replacement, ESLint integration, and the flexibility of Workers deployments.
+## Features
 
-![React + TypeScript + Vite + Cloudflare Workers](https://imagedelivery.net/wSMYJvS3Xw-n339CbDyDIA/fc7b4b62-442b-4769-641b-ad4422d74300/public)
+### Test Case Types
 
-<!-- dash-content-start -->
+#### Perfect Matches
+- Transaction perfectly matches invoice (same supplier, amount, date close by, invoice number in description)
 
-🚀 Supercharge your web development with this powerful stack:
+#### Discount Cases
+- **1% Early Payment Discount** - Transaction amount is 1% less due to early payment discount
+- **2% Early Payment Discount** - Transaction amount is 2% less due to early payment discount
+- **3% Early Payment Discount** - Transaction amount is 3% less due to early payment discount
 
-- [**React**](https://react.dev/) - A modern UI library for building interactive interfaces
-- [**Vite**](https://vite.dev/) - Lightning-fast build tooling and development server
-- [**Hono**](https://hono.dev/) - Ultralight, modern backend framework
-- [**Cloudflare Workers**](https://developers.cloudflare.com/workers/) - Edge computing platform for global deployment
+#### FX Adjustments
+- **FX Gain** - Foreign exchange conversion resulted in paying less EUR than expected
+- **FX Loss** - Foreign exchange conversion resulted in paying more EUR than expected
 
-### ✨ Key Features
+#### Partial Matches
+- **Missing Description** - Transaction matches but description is generic (no invoice number)
+- **Amount Mismatch** - Small unexplained amount difference (rounding, fees)
+- **Date Far Apart** - Transaction date is unusually far from invoice date (30+ days)
 
-- 🔥 Hot Module Replacement (HMR) for rapid development
-- 📦 TypeScript support out of the box
-- 🛠️ ESLint configuration included
-- ⚡ Zero-config deployment to Cloudflare's global network
-- 🎯 API routes with Hono's elegant routing
-- 🔄 Full-stack development setup
-- 🔎 Built-in Observability to monitor your Worker
+## Output Formats
 
-Get started in minutes with local development or deploy directly via the Cloudflare dashboard. Perfect for building modern, performant web applications at the edge.
+### Bank Transactions CSV
+```csv
+date;counterparty;description;amount_eur
+2025-11-15;TECHSOLUTIONS GMBH;INV-2025-0892 Payment 2% early discount;-9800.0
+2025-10-10;V PAY;Selfmade München;-24.46
+```
 
-<!-- dash-content-end -->
+### Invoice PDFs
+Professional PDF invoices with:
+- Supplier and customer details
+- Line items with quantities, prices, and tax
+- Payment terms and bank details
+- Invoice number and dates
+
+### JSON Metadata
+Complete test suite data including:
+- Invoice details
+- Transaction details
+- Matching metadata (which fields match/mismatch)
+- Adjustment reasons (discounts, FX rates, etc.)
 
 ## Getting Started
 
-To start a new project with this template, run:
-
-```bash
-npm create cloudflare@latest -- --template=cloudflare/templates/vite-react-template
-```
-
-A live deployment of this template is available at:
-[https://react-vite-template.templates.workers.dev](https://react-vite-template.templates.workers.dev)
-
-## Development
-
-Install dependencies:
+### Installation
 
 ```bash
 npm install
 ```
 
-Start the development server with:
+### Development
 
 ```bash
 npm run dev
 ```
 
-Your application will be available at [http://localhost:5173](http://localhost:5173).
+The app will be available at `http://localhost:5173/`
 
-## Production
-
-Build your project for production:
+### Build
 
 ```bash
 npm run build
 ```
 
-Preview your build locally:
+### Deploy to Cloudflare Workers
 
 ```bash
-npm run preview
+npm run deploy
 ```
 
-Deploy your project to Cloudflare Workers:
+## Usage
 
-```bash
-npm run build && npm run deploy
+1. **Configure Date Range**: Set the date range for invoice and transaction dates
+2. **Select Test Cases**: Choose the types and quantities of test cases to generate
+3. **Generate**: Click "Generate Test Cases" to create the test suite
+4. **Download**: Download the complete bundle (CSV + PDFs + JSON) or individual files
+
+## Tech Stack
+
+- **Frontend**: React 19 + TypeScript + Vite
+- **Backend**: Hono (Cloudflare Workers)
+- **PDF Generation**: jsPDF with jspdf-autotable
+- **Styling**: Custom CSS with CSS Variables
+
+## API Endpoints
+
+### `GET /api/`
+Health check endpoint
+
+### `GET /api/test-case-types`
+Returns available test case types and their descriptions
+
+### `POST /api/generate`
+Generate test cases
+
+**Request Body:**
+```json
+{
+  "cases": [
+    { "type": "perfect_match", "quantity": 5 },
+    { "type": "discount_2_percent", "quantity": 3 }
+  ],
+  "dateRange": {
+    "start": "2025-01-01",
+    "end": "2025-12-31"
+  },
+  "customerCompany": {
+    "name": "Your Company Name"
+  }
+}
 ```
 
-Monitor your workers:
+## Extending the Generator
 
-```bash
-npx wrangler tail
-```
+To add new test case types:
 
-## Additional Resources
+1. Add the type to `TestCaseType` in `src/shared/types.ts`
+2. Add configuration to `TEST_CASE_CONFIGS` in `src/shared/types.ts`
+3. Add generation logic in `generateTransaction()` in `src/shared/generator.ts`
+4. Add the type to a category in `TEST_CASE_CATEGORIES` in `src/react-app/App.tsx`
 
-- [Cloudflare Workers Documentation](https://developers.cloudflare.com/workers/)
-- [Vite Documentation](https://vitejs.dev/guide/)
-- [React Documentation](https://reactjs.org/)
-- [Hono Documentation](https://hono.dev/)
+## License
+
+MIT
