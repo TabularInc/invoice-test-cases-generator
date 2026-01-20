@@ -1,3 +1,6 @@
+// Transaction Direction - Payables (money going out) vs Receivables (money coming in)
+export type TransactionDirection = 'payables' | 'receivables';
+
 // Test Case Types
 export type TestCaseType =
   | 'perfect_match'
@@ -8,7 +11,8 @@ export type TestCaseType =
   | 'fx_loss'
   | 'partial_match_no_description'
   | 'partial_match_amount_mismatch'
-  | 'partial_match_date_far';
+  | 'partial_match_date_far'
+  | 'group_payment';
 
 export interface TestCaseConfig {
   type: TestCaseType;
@@ -60,7 +64,9 @@ export interface BankTransaction {
 export interface TestCase {
   id: string;
   type: TestCaseType;
+  direction: TransactionDirection;
   invoice: Invoice;
+  invoices?: Invoice[]; // For group payments - multiple invoices
   transaction: BankTransaction;
   metadata: {
     originalAmount: number;
@@ -70,21 +76,24 @@ export interface TestCase {
     fxRate?: number;
     matchingFields: string[];
     mismatchedFields: string[];
+    groupedInvoiceCount?: number; // For group payments
   };
 }
 
 export interface GenerationRequest {
   cases: TestCaseConfig[];
+  direction: TransactionDirection;
   dateRange: {
     start: string;
     end: string;
   };
-  customerCompany: Partial<Company>;
+  customerCompany?: Partial<Company>;
 }
 
 export interface GeneratedTestSuite {
   id: string;
   createdAt: string;
+  direction: TransactionDirection;
   cases: TestCase[];
   csvContent: string;
 }
@@ -164,5 +173,9 @@ export const TEST_CASE_CONFIGS: Record<TestCaseType, { label: string; descriptio
   partial_match_date_far: {
     label: 'Partial Match - Date Far Apart',
     description: 'Transaction date is unusually far from invoice date (30+ days)',
+  },
+  group_payment: {
+    label: 'Group Payment',
+    description: 'Single transaction covering 2-3 invoices from the same supplier/customer',
   },
 };

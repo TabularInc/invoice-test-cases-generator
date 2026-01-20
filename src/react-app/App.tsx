@@ -4,6 +4,8 @@ import {
   TestCaseConfig,
   GeneratedTestSuite,
   TEST_CASE_CONFIGS,
+  TransactionDirection,
+  Invoice,
 } from '../shared/types';
 import {
   generateInvoicePDF,
@@ -33,6 +35,8 @@ import {
   RotateCcw,
   Sparkles,
   Calendar,
+  ArrowDownLeft,
+  ArrowUpRight,
 } from 'lucide-react';
 
 type TestCaseCategory = 'matches' | 'discounts' | 'fx' | 'partial';
@@ -45,7 +49,7 @@ const CATEGORY_LABELS: Record<TestCaseCategory, string> = {
 };
 
 const TEST_CASE_CATEGORIES: Record<TestCaseCategory, TestCaseType[]> = {
-  matches: ['perfect_match'],
+  matches: ['perfect_match', 'group_payment'],
   discounts: ['discount_1_percent', 'discount_2_percent', 'discount_3_percent'],
   fx: ['fx_gain', 'fx_loss'],
   partial: ['partial_match_no_description', 'partial_match_amount_mismatch', 'partial_match_date_far'],
@@ -127,6 +131,7 @@ function getDefaultStartDate(): string {
 
 function App() {
   const [selectedCases, setSelectedCases] = useState<Map<TestCaseType, number>>(new Map());
+  const [direction, setDirection] = useState<TransactionDirection>('payables');
   const [dateRange, setDateRange] = useState({
     start: getDefaultStartDate(),
     end: new Date().toISOString().split('T')[0],
@@ -174,6 +179,7 @@ function App() {
     setSelectedCases(new Map());
     setGeneratedSuite(null);
     setExpandedCases(new Set());
+    setDirection('payables');
   };
 
   const handleGenerate = async () => {
@@ -200,6 +206,7 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           cases: configs,
+          direction,
           dateRange,
         }),
       });
@@ -241,6 +248,12 @@ function App() {
     downloadBlob(pdfBlob, filename);
   };
 
+  const handleDownloadGroupInvoicePDF = (invoice: Invoice) => {
+    const pdfBlob = generateInvoicePDF(invoice);
+    const filename = `${invoice.number.replace(/[^a-zA-Z0-9-]/g, '_')}.pdf`;
+    downloadBlob(pdfBlob, filename);
+  };
+
   const handleDownloadJSON = () => {
     if (!generatedSuite) return;
     const filename = `test_suite_${generatedSuite.id.slice(0, 8)}.json`;
@@ -265,9 +278,18 @@ function App() {
 
         for (const tc of generatedSuite.cases) {
           try {
-            const pdfBlob = generateInvoicePDF(tc.invoice);
-            const fileName = `invoices/${tc.invoice.number.replace(/[^a-zA-Z0-9-]/g, '_')}.pdf`;
-            zip.file(fileName, pdfBlob);
+            // For group payments, generate PDFs for all invoices in the group
+            if (tc.type === 'group_payment' && tc.invoices) {
+              for (const invoice of tc.invoices) {
+                const pdfBlob = generateInvoicePDF(invoice);
+                const fileName = `invoices/${invoice.number.replace(/[^a-zA-Z0-9-]/g, '_')}.pdf`;
+                zip.file(fileName, pdfBlob);
+              }
+            } else {
+              const pdfBlob = generateInvoicePDF(tc.invoice);
+              const fileName = `invoices/${tc.invoice.number.replace(/[^a-zA-Z0-9-]/g, '_')}.pdf`;
+              zip.file(fileName, pdfBlob);
+            }
           } catch (pdfError) {
             console.error(`Error generating PDF for ${tc.invoice.number}:`, pdfError);
           }
@@ -297,7 +319,7 @@ function App() {
     }, 50);
   };
 
-  return (
+	return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/50">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-xl">
@@ -306,7 +328,7 @@ function App() {
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 shadow-lg shadow-blue-500/25">
               <FileText className="h-5 w-5 text-white" />
             </div>
-            <div>
+			<div>
               <h1 className="text-xl font-semibold tracking-tight text-slate-900">
                 Invoice Test Cases Generator
               </h1>
@@ -328,6 +350,46 @@ function App() {
       <main className="container mx-auto px-6 py-8 space-y-8">
         {/* Configuration Section */}
         <section className="space-y-6">
+          {/* Direction Toggle */}
+          <Card>
+            <CardContent className="py-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                <div className="flex-1">
+                  <h3 className="font-medium text-slate-900">Transaction Type</h3>
+                  <p className="text-sm text-slate-500">Choose between outgoing payments or incoming receipts</p>
+                </div>
+                <div className="flex rounded-lg border border-slate-200 p-1 bg-slate-50">
+                  <button
+                    type="button"
+                    onClick={() => setDirection('payables')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                      direction === 'payables'
+                        ? 'bg-white text-blue-600 shadow-sm border border-slate-200'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <ArrowUpRight className="h-4 w-4" />
+                    Payables
+                    <span className="text-xs text-slate-400">(Bills)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDirection('receivables')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                      direction === 'receivables'
+                        ? 'bg-white text-green-600 shadow-sm border border-slate-200'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <ArrowDownLeft className="h-4 w-4" />
+                    Receivables
+                    <span className="text-xs text-slate-400">(Invoices)</span>
+                  </button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Quick Config + Date Range Row */}
           <div className="grid gap-6 lg:grid-cols-[1fr_auto]">
             {/* Quick Config */}
@@ -425,7 +487,7 @@ function App() {
                     )}
                   </Button>
                 </div>
-              </div>
+			</div>
             </CardHeader>
             <CardContent>
               <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
@@ -500,13 +562,22 @@ function App() {
               <CardContent className="py-4">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
-                    <h2 className="text-lg font-semibold text-slate-900">
-                      Generated Results
-                    </h2>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-lg font-semibold text-slate-900">
+                        Generated Results
+                      </h2>
+                      <Badge variant={generatedSuite.direction === 'payables' ? 'info' : 'success'}>
+                        {generatedSuite.direction === 'payables' ? (
+                          <><ArrowUpRight className="h-3 w-3 mr-1" /> Payables</>
+                        ) : (
+                          <><ArrowDownLeft className="h-3 w-3 mr-1" /> Receivables</>
+                        )}
+                      </Badge>
+                    </div>
                     <p className="text-sm text-slate-500">
                       {generatedSuite.cases.length} test cases ready for download
-                    </p>
-                  </div>
+				</p>
+			</div>
                   <div className="flex flex-wrap gap-2">
                     <Button
                       type="button"
@@ -597,24 +668,58 @@ function App() {
                                 expandedCases.has(tc.id) ? 'rotate-180' : ''
                               }`}
                             />
-                          </button>
+				</button>
                         </CollapsibleTrigger>
                         <CollapsibleContent>
                           <div className="border-t border-slate-100 px-3 py-3 space-y-3 bg-slate-50">
-                            <div className="grid grid-cols-2 gap-4 text-xs">
-                              <div>
-                                <p className="font-semibold text-slate-500 mb-1">Invoice</p>
-                                <p className="text-slate-700">Date: {tc.invoice.date}</p>
-                                <p className="text-slate-700">Due: {tc.invoice.dueDate}</p>
+                            {/* For group payments, show all invoices */}
+                            {tc.type === 'group_payment' && tc.invoices ? (
+                              <div className="space-y-2">
+                                <p className="font-semibold text-slate-500 text-xs">
+                                  Invoices ({tc.invoices.length})
+                                </p>
+                                <div className="space-y-1">
+                                  {tc.invoices.map((inv) => (
+                                    <div
+                                      key={inv.id}
+                                      className="flex items-center justify-between text-xs bg-white rounded border border-slate-200 px-2 py-1"
+                                    >
+                                      <span className="font-mono text-slate-700">{inv.number}</span>
+                                      <span className="text-slate-500">{inv.date}</span>
+                                      <span className="font-mono font-medium text-slate-900">
+                                        €{inv.total.toFixed(2)}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
-                              <div>
+                            ) : (
+                              <div className="grid grid-cols-2 gap-4 text-xs">
+                                <div>
+                                  <p className="font-semibold text-slate-500 mb-1">Invoice</p>
+                                  <p className="text-slate-700">Date: {tc.invoice.date}</p>
+                                  <p className="text-slate-700">Due: {tc.invoice.dueDate}</p>
+                                </div>
+                                <div>
+                                  <p className="font-semibold text-slate-500 mb-1">Transaction</p>
+                                  <p className="text-slate-700">Date: {tc.transaction.date}</p>
+                                  <p className="text-slate-700 truncate" title={tc.transaction.description}>
+                                    {tc.transaction.description}
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Transaction info for group payments */}
+                            {tc.type === 'group_payment' && (
+                              <div className="text-xs border-t border-slate-200 pt-2">
                                 <p className="font-semibold text-slate-500 mb-1">Transaction</p>
                                 <p className="text-slate-700">Date: {tc.transaction.date}</p>
                                 <p className="text-slate-700 truncate" title={tc.transaction.description}>
                                   {tc.transaction.description}
-                                </p>
-                              </div>
-                            </div>
+				</p>
+			</div>
+                            )}
 
                             <div className="flex flex-wrap gap-1">
                               {tc.metadata.matchingFields.map((field) => (
@@ -633,19 +738,40 @@ function App() {
                               <p className="text-xs text-slate-500">{tc.metadata.adjustmentReason}</p>
                             )}
 
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDownloadSinglePDF(tc.id);
-                              }}
-                              className="w-full gap-2 text-xs"
-                            >
-                              <FileText className="h-3 w-3" />
-                              Download PDF
-                            </Button>
+                            {tc.type === 'group_payment' && tc.invoices ? (
+                              <div className="space-y-1">
+                                {tc.invoices.map((inv) => (
+                                  <Button
+                                    key={inv.id}
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDownloadGroupInvoicePDF(inv);
+                                    }}
+                                    className="w-full gap-2 text-xs"
+                                  >
+                                    <FileText className="h-3 w-3" />
+                                    Download {inv.number}
+                                  </Button>
+                                ))}
+                              </div>
+                            ) : (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDownloadSinglePDF(tc.id);
+                                }}
+                                className="w-full gap-2 text-xs"
+                              >
+                                <FileText className="h-3 w-3" />
+                                Download PDF
+                              </Button>
+                            )}
                           </div>
                         </CollapsibleContent>
                       </div>
@@ -670,7 +796,7 @@ function App() {
         )}
       </main>
     </div>
-  );
+	);
 }
 
 export default App;

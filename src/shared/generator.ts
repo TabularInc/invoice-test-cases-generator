@@ -8,6 +8,7 @@ import {
   Company,
   InvoiceItem,
   GeneratedTestSuite,
+  TransactionDirection,
 } from './types';
 import {
   getRandomSupplier,
@@ -15,8 +16,8 @@ import {
   getRandomGenericDescription,
 } from './suppliers';
 
-// Default customer company
-const DEFAULT_CUSTOMER: Company = {
+// Default company (used as customer for payables, as supplier for receivables)
+const DEFAULT_COMPANY: Company = {
   name: 'Acme Corporation GmbH',
   address: 'Musterstraße 123, 10115 Berlin, Germany',
   phone: '+49 30 555 1234',
@@ -47,8 +48,9 @@ function addDays(date: Date, days: number): Date {
   return result;
 }
 
-function generateInvoiceNumber(year: number, sequence: number): string {
-  return `INV-${year}-${sequence.toString().padStart(4, '0')}`;
+function generateInvoiceNumber(year: number, sequence: number, direction: TransactionDirection): string {
+  const prefix = direction === 'receivables' ? 'INV' : 'BILL';
+  return `${prefix}-${year}-${sequence.toString().padStart(4, '0')}`;
 }
 
 // Generate invoice items with realistic prices
@@ -96,7 +98,8 @@ function generateInvoice(
   dateRange: { start: Date; end: Date },
   supplier: Company,
   customer: Company,
-  invoiceSequence: number
+  invoiceSequence: number,
+  direction: TransactionDirection
 ): Invoice {
   const daysDiff = Math.floor(
     (dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24)
@@ -108,9 +111,13 @@ function generateInvoice(
   const items = generateInvoiceItems(randomBetween(1, 5));
   const { subtotal, taxTotal, total } = calculateInvoiceTotals(items);
 
+  const note = direction === 'receivables'
+    ? 'Thank you for your business. Payment due within the specified terms.'
+    : 'Please process payment by the due date. Thank you.';
+
   return {
     id: uuidv4(),
-    number: generateInvoiceNumber(invoiceDate.getFullYear(), invoiceSequence),
+    number: generateInvoiceNumber(invoiceDate.getFullYear(), invoiceSequence, direction),
     date: formatDate(invoiceDate),
     dueDate: formatDate(dueDate),
     supplier,
@@ -120,14 +127,15 @@ function generateInvoice(
     taxTotal,
     total,
     currency: 'EUR',
-    note: 'Thank you for your business. Payment due within the specified terms.',
+    note,
   };
 }
 
-// Generate transaction based on test case type
+// Generate transaction based on test case type and direction
 function generateTransaction(
   invoice: Invoice,
-  type: TestCaseType
+  type: TestCaseType,
+  direction: TransactionDirection
 ): { transaction: BankTransaction; metadata: TestCase['metadata'] } {
   const invoiceDate = new Date(invoice.date);
   let transactionDate: Date;
@@ -141,23 +149,27 @@ function generateTransaction(
     mismatchedFields: [],
   };
 
-  // Format counterparty name for bank statement (uppercase, abbreviations)
-  counterparty = invoice.supplier.name.toUpperCase().replace('GMBH', 'GMBH').replace('Ltd', 'LTD');
+  // For payables: counterparty is the supplier (we pay them)
+  // For receivables: counterparty is the customer (they pay us)
+  const counterpartyCompany = direction === 'payables' ? invoice.supplier : invoice.customer;
+  counterparty = counterpartyCompany.name.toUpperCase().replace('GMBH', 'GMBH').replace('Ltd', 'LTD');
+
+  // Amount sign: negative for payables (money out), positive for receivables (money in)
+  const amountSign = direction === 'payables' ? -1 : 1;
 
   switch (type) {
     case 'perfect_match':
-      // Transaction 1-7 days after invoice date
       transactionDate = addDays(invoiceDate, randomBetween(1, 7));
-      amount = -invoice.total;
+      amount = amountSign * invoice.total;
       description = `${invoice.number} Payment`;
       metadata.matchingFields = ['counterparty', 'amount', 'invoice_number', 'date_proximity'];
       break;
 
     case 'discount_1_percent':
-      transactionDate = addDays(invoiceDate, randomBetween(1, 5)); // Early payment
-      amount = -parseFloat((invoice.total * 0.99).toFixed(2));
+      transactionDate = addDays(invoiceDate, randomBetween(1, 5));
+      amount = amountSign * parseFloat((invoice.total * 0.99).toFixed(2));
       description = `${invoice.number} Payment 1% early discount`;
-      metadata.adjustedAmount = -amount;
+      metadata.adjustedAmount = Math.abs(amount);
       metadata.discountPercent = 1;
       metadata.adjustmentReason = '1% early payment discount';
       metadata.matchingFields = ['counterparty', 'invoice_number', 'date_proximity'];
@@ -166,9 +178,9 @@ function generateTransaction(
 
     case 'discount_2_percent':
       transactionDate = addDays(invoiceDate, randomBetween(1, 5));
-      amount = -parseFloat((invoice.total * 0.98).toFixed(2));
+      amount = amountSign * parseFloat((invoice.total * 0.98).toFixed(2));
       description = `${invoice.number} Payment 2% early discount`;
-      metadata.adjustedAmount = -amount;
+      metadata.adjustedAmount = Math.abs(amount);
       metadata.discountPercent = 2;
       metadata.adjustmentReason = '2% early payment discount';
       metadata.matchingFields = ['counterparty', 'invoice_number', 'date_proximity'];
@@ -177,9 +189,9 @@ function generateTransaction(
 
     case 'discount_3_percent':
       transactionDate = addDays(invoiceDate, randomBetween(1, 5));
-      amount = -parseFloat((invoice.total * 0.97).toFixed(2));
+      amount = amountSign * parseFloat((invoice.total * 0.97).toFixed(2));
       description = `${invoice.number} Payment 3% early discount`;
-      metadata.adjustedAmount = -amount;
+      metadata.adjustedAmount = Math.abs(amount);
       metadata.discountPercent = 3;
       metadata.adjustmentReason = '3% early payment discount';
       metadata.matchingFields = ['counterparty', 'invoice_number', 'date_proximity'];
@@ -188,11 +200,12 @@ function generateTransaction(
 
     case 'fx_gain':
       transactionDate = addDays(invoiceDate, randomBetween(3, 14));
-      // FX gain: paid less EUR (favorable rate, 1-5% less)
       const gainRate = randomFloat(0.95, 0.99);
-      amount = -parseFloat((invoice.total * gainRate).toFixed(2));
+      // FX gain for payables = paid less, for receivables = received more
+      const gainMultiplier = direction === 'payables' ? gainRate : (2 - gainRate);
+      amount = amountSign * parseFloat((invoice.total * gainMultiplier).toFixed(2));
       description = `${invoice.number} FX Payment`;
-      metadata.adjustedAmount = -amount;
+      metadata.adjustedAmount = Math.abs(amount);
       metadata.fxRate = gainRate;
       metadata.adjustmentReason = `FX gain (rate: ${gainRate.toFixed(4)})`;
       metadata.matchingFields = ['counterparty', 'invoice_number'];
@@ -201,11 +214,12 @@ function generateTransaction(
 
     case 'fx_loss':
       transactionDate = addDays(invoiceDate, randomBetween(3, 14));
-      // FX loss: paid more EUR (unfavorable rate, 1-5% more)
       const lossRate = randomFloat(1.01, 1.05);
-      amount = -parseFloat((invoice.total * lossRate).toFixed(2));
+      // FX loss for payables = paid more, for receivables = received less
+      const lossMultiplier = direction === 'payables' ? lossRate : (2 - lossRate);
+      amount = amountSign * parseFloat((invoice.total * lossMultiplier).toFixed(2));
       description = `${invoice.number} FX Payment`;
-      metadata.adjustedAmount = -amount;
+      metadata.adjustedAmount = Math.abs(amount);
       metadata.fxRate = lossRate;
       metadata.adjustmentReason = `FX loss (rate: ${lossRate.toFixed(4)})`;
       metadata.matchingFields = ['counterparty', 'invoice_number'];
@@ -214,7 +228,7 @@ function generateTransaction(
 
     case 'partial_match_no_description':
       transactionDate = addDays(invoiceDate, randomBetween(1, 10));
-      amount = -invoice.total;
+      amount = amountSign * invoice.total;
       description = getRandomGenericDescription();
       metadata.matchingFields = ['counterparty', 'amount', 'date_proximity'];
       metadata.mismatchedFields = ['description (no invoice number)'];
@@ -222,28 +236,34 @@ function generateTransaction(
 
     case 'partial_match_amount_mismatch':
       transactionDate = addDays(invoiceDate, randomBetween(1, 10));
-      // Small random difference (bank fees, rounding) - 0.1% to 1%
       const mismatchFactor = randomFloat(0.99, 1.01);
-      amount = -parseFloat((invoice.total * mismatchFactor).toFixed(2));
+      amount = amountSign * parseFloat((invoice.total * mismatchFactor).toFixed(2));
       description = `${invoice.number} Payment`;
-      metadata.adjustedAmount = -amount;
+      metadata.adjustedAmount = Math.abs(amount);
       metadata.adjustmentReason = 'Unknown amount difference (possible fees or rounding)';
       metadata.matchingFields = ['counterparty', 'invoice_number', 'date_proximity'];
       metadata.mismatchedFields = ['amount (small unexplained difference)'];
       break;
 
     case 'partial_match_date_far':
-      // Transaction 30-60 days after invoice - unusually late payment
       transactionDate = addDays(invoiceDate, randomBetween(30, 60));
-      amount = -invoice.total;
+      amount = amountSign * invoice.total;
       description = `${invoice.number} Late Payment`;
       metadata.matchingFields = ['counterparty', 'amount', 'invoice_number'];
       metadata.mismatchedFields = ['date (30+ days after invoice)'];
       break;
 
+    case 'group_payment':
+      // This case is handled separately by generateGroupPaymentTestCase
+      transactionDate = addDays(invoiceDate, randomBetween(1, 7));
+      amount = amountSign * invoice.total;
+      description = `${invoice.number} Payment`;
+      metadata.matchingFields = ['counterparty', 'amount', 'invoice_number', 'date_proximity'];
+      break;
+
     default:
       transactionDate = addDays(invoiceDate, randomBetween(1, 7));
-      amount = -invoice.total;
+      amount = amountSign * invoice.total;
       description = `${invoice.number} Payment`;
       metadata.matchingFields = ['counterparty', 'amount', 'invoice_number', 'date_proximity'];
   }
@@ -261,20 +281,101 @@ function generateTransaction(
 // Generate a single test case
 function generateTestCase(
   type: TestCaseType,
+  direction: TransactionDirection,
   dateRange: { start: Date; end: Date },
-  customer: Company,
+  ourCompany: Company,
   invoiceSequence: number
 ): TestCase {
-  const supplier = getRandomSupplier();
-  const invoice = generateInvoice(dateRange, supplier, customer, invoiceSequence);
-  const { transaction, metadata } = generateTransaction(invoice, type);
+  const otherParty = getRandomSupplier();
+
+  // For payables: other party is supplier, we are customer
+  // For receivables: we are supplier, other party is customer
+  const supplier = direction === 'payables' ? otherParty : ourCompany;
+  const customer = direction === 'payables' ? ourCompany : otherParty;
+
+  const invoice = generateInvoice(dateRange, supplier, customer, invoiceSequence, direction);
+  const { transaction, metadata } = generateTransaction(invoice, type, direction);
 
   return {
     id: uuidv4(),
     type,
+    direction,
     invoice,
     transaction,
     metadata,
+  };
+}
+
+// Generate a group payment test case (one transaction for multiple invoices)
+function generateGroupPaymentTestCase(
+  direction: TransactionDirection,
+  dateRange: { start: Date; end: Date },
+  ourCompany: Company,
+  startingSequence: number
+): { testCase: TestCase; invoicesGenerated: number } {
+  const otherParty = getRandomSupplier();
+
+  // For payables: other party is supplier, we are customer
+  // For receivables: we are supplier, other party is customer
+  const supplier = direction === 'payables' ? otherParty : ourCompany;
+  const customer = direction === 'payables' ? ourCompany : otherParty;
+
+  // Generate 2-3 invoices from the same counterparty
+  const invoiceCount = randomBetween(2, 3);
+  const invoices: Invoice[] = [];
+
+  for (let i = 0; i < invoiceCount; i++) {
+    const invoice = generateInvoice(dateRange, supplier, customer, startingSequence + i, direction);
+    invoices.push(invoice);
+  }
+
+  // Calculate total amount
+  const totalAmount = invoices.reduce((sum, inv) => sum + inv.total, 0);
+  const amountSign = direction === 'payables' ? -1 : 1;
+
+  // Find the latest invoice date and add a few days for the transaction
+  const latestInvoiceDate = invoices.reduce((latest, inv) => {
+    const invDate = new Date(inv.date);
+    return invDate > latest ? invDate : latest;
+  }, new Date(invoices[0].date));
+
+  const transactionDate = addDays(latestInvoiceDate, randomBetween(1, 7));
+
+  // Create description with all invoice numbers
+  const invoiceNumbers = invoices.map(inv => inv.number).join(', ');
+  const description = `Batch Payment: ${invoiceNumbers}`;
+
+  // Format counterparty name
+  const counterpartyCompany = direction === 'payables' ? supplier : customer;
+  const counterparty = counterpartyCompany.name.toUpperCase().replace('GMBH', 'GMBH').replace('Ltd', 'LTD');
+
+  const transaction: BankTransaction = {
+    date: formatDate(transactionDate),
+    counterparty,
+    description,
+    amount_eur: parseFloat((amountSign * totalAmount).toFixed(2)),
+  };
+
+  const metadata: TestCase['metadata'] = {
+    originalAmount: parseFloat(totalAmount.toFixed(2)),
+    adjustedAmount: parseFloat(totalAmount.toFixed(2)),
+    matchingFields: ['counterparty', 'total_amount', 'invoice_numbers', 'date_proximity'],
+    mismatchedFields: [],
+    groupedInvoiceCount: invoiceCount,
+    adjustmentReason: `Group payment covering ${invoiceCount} invoices`,
+  };
+
+  return {
+    testCase: {
+      id: uuidv4(),
+      type: 'group_payment',
+      direction,
+      invoice: invoices[0], // Primary invoice for display
+      invoices, // All invoices in the group
+      transaction,
+      metadata,
+    },
+    invoicesGenerated: invoiceCount,
   };
 }
 
@@ -299,12 +400,13 @@ function generateCSV(testCases: TestCase[]): string {
 // Main generation function
 export function generateTestSuite(
   configs: TestCaseConfig[],
+  direction: TransactionDirection,
   dateRange: { start: string; end: string },
-  customerCompany?: Partial<Company>
+  companyOverrides?: Partial<Company>
 ): GeneratedTestSuite {
-  const customer: Company = {
-    ...DEFAULT_CUSTOMER,
-    ...customerCompany,
+  const ourCompany: Company = {
+    ...DEFAULT_COMPANY,
+    ...companyOverrides,
   };
 
   const parsedDateRange = {
@@ -313,17 +415,30 @@ export function generateTestSuite(
   };
 
   const testCases: TestCase[] = [];
-  let invoiceSequence = randomBetween(100, 999); // Start with random sequence number
+  let invoiceSequence = randomBetween(100, 999);
 
   for (const config of configs) {
     for (let i = 0; i < config.quantity; i++) {
-      const testCase = generateTestCase(
-        config.type,
-        parsedDateRange,
-        customer,
-        invoiceSequence++
-      );
-      testCases.push(testCase);
+      if (config.type === 'group_payment') {
+        // Group payments generate multiple invoices per test case
+        const { testCase, invoicesGenerated } = generateGroupPaymentTestCase(
+          direction,
+          parsedDateRange,
+          ourCompany,
+          invoiceSequence
+        );
+        testCases.push(testCase);
+        invoiceSequence += invoicesGenerated;
+      } else {
+        const testCase = generateTestCase(
+          config.type,
+          direction,
+          parsedDateRange,
+          ourCompany,
+          invoiceSequence++
+        );
+        testCases.push(testCase);
+      }
     }
   }
 
@@ -332,6 +447,7 @@ export function generateTestSuite(
   return {
     id: uuidv4(),
     createdAt: new Date().toISOString(),
+    direction,
     cases: testCases,
     csvContent,
   };
@@ -374,12 +490,11 @@ export function invoiceToPDFData(invoice: Invoice): {
   };
   note: string;
 } {
-  // Extract invoice number as integer
   const invoiceNumber = parseInt(invoice.number.replace(/\D/g, ''), 10);
 
   return {
     company: {
-      logo: '', // Will use default or can be customized
+      logo: '',
       name: invoice.supplier.name,
       address: invoice.supplier.address,
       phone: invoice.supplier.phone,

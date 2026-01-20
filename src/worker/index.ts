@@ -29,8 +29,11 @@ app.post("/api/generate", async (c) => {
       return c.json({ error: "Date range is required" }, 400);
     }
 
+    const direction = body.direction || 'payables';
+
     const testSuite = generateTestSuite(
       body.cases,
+      direction,
       body.dateRange,
       body.customerCompany
     );
