@@ -52,6 +52,7 @@ export interface Invoice {
   total: number;
   currency: string;
   note: string;
+  direction: TransactionDirection; // Whether this is a receivable (we issue) or payable (we receive)
 }
 
 export interface BankTransaction {
@@ -87,7 +88,7 @@ export interface GenerationRequest {
     start: string;
     end: string;
   };
-  customerCompany?: Partial<Company>;
+  myCompany?: Partial<Company>; // User's company (supplier for receivables, customer for payables)
 }
 
 export interface GeneratedTestSuite {

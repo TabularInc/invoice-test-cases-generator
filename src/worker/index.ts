@@ -35,7 +35,7 @@ app.post("/api/generate", async (c) => {
       body.cases,
       direction,
       body.dateRange,
-      body.customerCompany
+      body.myCompany
     );
 
     return c.json(testSuite);

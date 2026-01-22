@@ -9,9 +9,12 @@ export function generateInvoicePDF(invoice: Invoice): Blob {
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 20;
 
-  // Colors
-  const primaryColor: [number, number, number] = [41, 65, 114];
-  const accentColor: [number, number, number] = [59, 130, 246];
+  // Determine if this is a receivable (we issued it) or payable (we received it)
+  const isReceivable = invoice.direction === 'receivables';
+
+  // Colors - different accent for receivables vs payables
+  const primaryColor: [number, number, number] = isReceivable ? [22, 101, 52] : [41, 65, 114]; // Green for receivables, blue for payables
+  const accentColor: [number, number, number] = isReceivable ? [34, 197, 94] : [59, 130, 246];
   const textColor: [number, number, number] = [55, 65, 81];
   const lightGray: [number, number, number] = [156, 163, 175];
 
@@ -19,26 +22,28 @@ export function generateInvoicePDF(invoice: Invoice): Blob {
   doc.setFillColor(...primaryColor);
   doc.rect(0, 0, pageWidth, 40, 'F');
 
-  // Company name (supplier)
+  // Company name (supplier - the one issuing the invoice)
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
   doc.text(invoice.supplier.name, margin, 22);
 
-  // Invoice label and number
-  doc.setFontSize(10);
+  // Invoice type label and number - different for receivables vs payables
+  const invoiceTypeLabel = isReceivable ? 'SALES INVOICE' : 'VENDOR INVOICE';
+  doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  doc.text('INVOICE', pageWidth - margin, 18, { align: 'right' });
+  doc.text(invoiceTypeLabel, pageWidth - margin, 16, { align: 'right' });
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.text(invoice.number, pageWidth - margin, 28, { align: 'right' });
 
-  // Supplier details (left side)
+  // Supplier details (left side) - the company issuing the invoice
   let y = 52;
   doc.setTextColor(...textColor);
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
-  doc.text('FROM', margin, y);
+  // For receivables: "ISSUED BY" (we issued it), for payables: "VENDOR" (they issued it to us)
+  doc.text(isReceivable ? 'ISSUED BY' : 'VENDOR', margin, y);
   y += 6;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
@@ -55,12 +60,13 @@ export function generateInvoicePDF(invoice: Invoice): Blob {
   y += 4;
   doc.text(`VAT ID: ${invoice.supplier.vatId}`, margin, y);
 
-  // Customer details (right side)
+  // Customer details (right side) - the company receiving the invoice
   y = 52;
   const rightX = pageWidth / 2 + 10;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
-  doc.text('BILL TO', rightX, y);
+  // For receivables: "BILL TO" (our customer), for payables: "BILLED TO" (us)
+  doc.text(isReceivable ? 'BILL TO' : 'BILLED TO', rightX, y);
   y += 6;
   doc.setFont('helvetica', 'normal');
   doc.text(invoice.customer.name, rightX, y);
@@ -95,12 +101,14 @@ export function generateInvoicePDF(invoice: Invoice): Blob {
   doc.text(invoice.dueDate, margin + 50, y);
   doc.text(invoice.currency, margin + 92, y);
 
-  // Status badge
+  // Status badge - different for receivables (RECEIVABLE) vs payables (PAYABLE)
+  const statusLabel = isReceivable ? 'RECEIVABLE' : 'PAYABLE';
+  const badgeWidth = isReceivable ? 32 : 28;
   doc.setFillColor(...accentColor);
-  doc.roundedRect(pageWidth - margin - 30, y - 5, 22, 8, 2, 2, 'F');
+  doc.roundedRect(pageWidth - margin - badgeWidth - 4, y - 5, badgeWidth, 8, 2, 2, 'F');
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(7);
-  doc.text('DUE', pageWidth - margin - 23, y);
+  doc.setFontSize(6);
+  doc.text(statusLabel, pageWidth - margin - badgeWidth / 2 - 4, y, { align: 'center' });
 
   // Items table
   y += 15;
@@ -180,14 +188,15 @@ export function generateInvoicePDF(invoice: Invoice): Blob {
   // Bank details and Note section - positioned with enough space from footer
   const bankDetailsY = Math.min(y + 20, pageHeight - 65);
 
-  // Bank details box
+  // Bank details box - different label for receivables vs payables
   doc.setFillColor(248, 250, 252);
   doc.roundedRect(margin, bankDetailsY, 85, 28, 2, 2, 'F');
 
   doc.setFontSize(8);
   doc.setTextColor(...primaryColor);
   doc.setFont('helvetica', 'bold');
-  doc.text('Bank Details', margin + 6, bankDetailsY + 8);
+  // For receivables: "Payment Details" (where customer should pay), for payables: "Vendor Bank Details"
+  doc.text(isReceivable ? 'Payment Details' : 'Vendor Bank Details', margin + 6, bankDetailsY + 8);
 
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...textColor);

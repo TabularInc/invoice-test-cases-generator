@@ -66,9 +66,10 @@ const getBadgeVariant = (type: TestCaseType): 'success' | 'warning' | 'info' | '
 const QUICK_CONFIGS: { label: string; description: string; cases: Map<TestCaseType, number> }[] = [
   {
     label: 'Basic Mix',
-    description: '5 of each type',
+    description: '5 of each core type',
     cases: new Map([
       ['perfect_match', 5],
+      ['group_payment', 3],
       ['discount_2_percent', 5],
       ['fx_gain', 5],
       ['partial_match_no_description', 5],
@@ -79,6 +80,7 @@ const QUICK_CONFIGS: { label: string; description: string; cases: Map<TestCaseTy
     description: '2 of every type',
     cases: new Map([
       ['perfect_match', 2],
+      ['group_payment', 2],
       ['discount_1_percent', 2],
       ['discount_2_percent', 2],
       ['discount_3_percent', 2],
@@ -93,6 +95,11 @@ const QUICK_CONFIGS: { label: string; description: string; cases: Map<TestCaseTy
     label: 'Perfect Only',
     description: '10 perfect matches',
     cases: new Map([['perfect_match', 10]]),
+  },
+  {
+    label: 'Group Payments',
+    description: '5 group payments',
+    cases: new Map([['group_payment', 5]]),
   },
   {
     label: 'Discounts Focus',
@@ -132,6 +139,7 @@ function getDefaultStartDate(): string {
 function App() {
   const [selectedCases, setSelectedCases] = useState<Map<TestCaseType, number>>(new Map());
   const [direction, setDirection] = useState<TransactionDirection>('payables');
+  const [companyName, setCompanyName] = useState('Acme Corporation GmbH');
   const [dateRange, setDateRange] = useState({
     start: getDefaultStartDate(),
     end: new Date().toISOString().split('T')[0],
@@ -182,6 +190,7 @@ function App() {
     setGeneratedSuite(null);
     setExpandedCases(new Set());
     setDirection('payables');
+    setCompanyName('Acme Corporation GmbH');
   };
 
   const handleGenerate = async () => {
@@ -210,6 +219,7 @@ function App() {
           cases: configs,
           direction,
           dateRange,
+          myCompany: { name: companyName },
         }),
       });
 
@@ -356,9 +366,9 @@ function App() {
       <main className="container mx-auto px-6 py-8 space-y-8">
         {/* Configuration Section */}
         <section className="space-y-6">
-          {/* Direction Toggle */}
+          {/* Direction Toggle & Company Name */}
           <Card>
-            <CardContent className="py-4">
+            <CardContent className="py-4 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                 <div className="flex-1">
                   <h3 className="font-medium text-slate-900">Transaction Type</h3>
@@ -391,6 +401,28 @@ function App() {
                     Receivables
                     <span className="text-xs text-slate-400">(Invoices)</span>
                   </button>
+                </div>
+              </div>
+
+              {/* Company Name Input */}
+              <div className={`flex flex-col sm:flex-row sm:items-center gap-4 pt-4 border-t border-slate-100 ${direction === 'receivables' ? 'bg-green-50/50 -mx-6 px-6 -mb-4 pb-4 rounded-b-lg' : ''}`}>
+                <div className="flex-1">
+                  <h3 className="font-medium text-slate-900">Your Company Name</h3>
+                  <p className="text-sm text-slate-500">
+                    {direction === 'receivables'
+                      ? 'This will appear as the issuer on generated invoices (SALES INVOICE)'
+                      : 'This will appear as the recipient on received bills (VENDOR INVOICE)'
+                    }
+                  </p>
+                </div>
+                <div className="sm:w-80">
+                  <Input
+                    type="text"
+                    value={companyName}
+                    onChange={(e) => { setCompanyName(e.target.value); setGeneratedSuite(null); }}
+                    placeholder="Enter your company name"
+                    className={direction === 'receivables' ? 'border-green-200 focus:border-green-400 focus:ring-green-400' : ''}
+                  />
                 </div>
               </div>
             </CardContent>
