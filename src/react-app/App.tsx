@@ -69,7 +69,7 @@ const QUICK_CONFIGS: { label: string; description: string; cases: Map<TestCaseTy
     description: '5 of each core type',
     cases: new Map([
       ['perfect_match', 5],
-      ['group_payment', 3],
+      ['group_payment', 5],
       ['discount_2_percent', 5],
       ['fx_gain', 5],
       ['partial_match_no_description', 5],
@@ -138,7 +138,7 @@ function getDefaultStartDate(): string {
 
 function App() {
   const [selectedCases, setSelectedCases] = useState<Map<TestCaseType, number>>(new Map());
-  const [direction, setDirection] = useState<TransactionDirection>('payables');
+  const [selectedDirections, setSelectedDirections] = useState<Set<TransactionDirection>>(new Set(['payables']));
   const [companyName, setCompanyName] = useState('Acme Corporation GmbH');
   const [dateRange, setDateRange] = useState({
     start: getDefaultStartDate(),
@@ -148,6 +148,22 @@ function App() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [expandedCases, setExpandedCases] = useState<Set<string>>(new Set());
   const [isDownloading, setIsDownloading] = useState(false);
+
+  const toggleDirection = (dir: TransactionDirection) => {
+    setSelectedDirections((prev) => {
+      const next = new Set(prev);
+      if (next.has(dir)) {
+        // Don't allow deselecting if it's the only one selected
+        if (next.size > 1) {
+          next.delete(dir);
+        }
+      } else {
+        next.add(dir);
+      }
+      return next;
+    });
+    setGeneratedSuite(null);
+  };
 
   const updateCaseQuantity = useCallback((type: TestCaseType, quantity: number) => {
     setSelectedCases((prev) => {
@@ -162,11 +178,15 @@ function App() {
     setGeneratedSuite(null); // Clear results when config changes
   }, []);
 
-  const getTotalCases = useCallback(() => {
+  const getCasesPerDirection = useCallback(() => {
     let total = 0;
     selectedCases.forEach((qty) => (total += qty));
     return total;
   }, [selectedCases]);
+
+  const getTotalCases = useCallback(() => {
+    return getCasesPerDirection() * selectedDirections.size;
+  }, [getCasesPerDirection, selectedDirections.size]);
 
   const toggleExpanded = (id: string) => {
     setExpandedCases((prev) => {
@@ -189,12 +209,12 @@ function App() {
     setSelectedCases(new Map());
     setGeneratedSuite(null);
     setExpandedCases(new Set());
-    setDirection('payables');
+    setSelectedDirections(new Set(['payables']));
     setCompanyName('Acme Corporation GmbH');
   };
 
   const handleGenerate = async () => {
-    if (selectedCases.size === 0) {
+    if (selectedCases.size === 0 || selectedDirections.size === 0) {
       return;
     }
 
@@ -212,23 +232,50 @@ function App() {
         });
       });
 
-      const response = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          cases: configs,
-          direction,
-          dateRange,
-          myCompany: { name: companyName },
-        }),
-      });
+      const directions = Array.from(selectedDirections);
+      const suites: GeneratedTestSuite[] = [];
 
-      if (!response.ok) {
-        throw new Error('Failed to generate test cases');
+      // Generate for each selected direction
+      for (const direction of directions) {
+        const response = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cases: configs,
+            direction,
+            dateRange,
+            myCompany: { name: companyName },
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to generate test cases for ${direction}`);
+        }
+
+        const suite: GeneratedTestSuite = await response.json();
+        suites.push(suite);
       }
 
-      const suite: GeneratedTestSuite = await response.json();
-      setGeneratedSuite(suite);
+      // Merge suites if multiple directions
+      if (suites.length === 1) {
+        setGeneratedSuite(suites[0]);
+      } else {
+        // Combine all cases and CSV content
+        const allCases = suites.flatMap((s) => s.cases);
+        const csvLines = suites.map((s) => s.csvContent.split('\n'));
+        const header = csvLines[0][0]; // Get header from first suite
+        const allDataRows = csvLines.flatMap((lines) => lines.slice(1)); // Skip header from each
+        allDataRows.sort((a, b) => a.split(';')[0].localeCompare(b.split(';')[0])); // Sort by date
+
+        const mergedSuite: GeneratedTestSuite = {
+          id: suites[0].id,
+          createdAt: new Date().toISOString(),
+          direction: 'mixed',
+          cases: allCases,
+          csvContent: [header, ...allDataRows].join('\n'),
+        };
+        setGeneratedSuite(mergedSuite);
+      }
     } catch (error) {
       console.error('Generation error:', error);
       alert('Failed to generate test cases. Please try again.');
@@ -366,53 +413,68 @@ function App() {
       <main className="container mx-auto px-6 py-8 space-y-8">
         {/* Configuration Section */}
         <section className="space-y-6">
-          {/* Direction Toggle & Company Name */}
+          {/* Direction Selection & Company Name */}
           <Card>
             <CardContent className="py-4 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                 <div className="flex-1">
-                  <h3 className="font-medium text-slate-900">Transaction Type</h3>
-                  <p className="text-sm text-slate-500">Choose between outgoing payments or incoming receipts</p>
+                  <h3 className="font-medium text-slate-900">Transaction Types</h3>
+                  <p className="text-sm text-slate-500">Select one or both to generate mixed batches</p>
                 </div>
-                <div className="flex rounded-lg border border-slate-200 p-1 bg-slate-50">
+                <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => { setDirection('payables'); setGeneratedSuite(null); }}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                      direction === 'payables'
-                        ? 'bg-white text-blue-600 shadow-sm border border-slate-200'
-                        : 'text-slate-600 hover:text-slate-900'
+                    onClick={() => toggleDirection('payables')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
+                      selectedDirections.has('payables')
+                        ? 'bg-blue-50 text-blue-700 border-blue-200 shadow-sm'
+                        : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:text-slate-900'
                     }`}
                   >
+                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
+                      selectedDirections.has('payables') ? 'bg-blue-600 border-blue-600' : 'border-slate-300'
+                    }`}>
+                      {selectedDirections.has('payables') && (
+                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
                     <ArrowUpRight className="h-4 w-4" />
                     Payables
-                    <span className="text-xs text-slate-400">(Bills)</span>
+                    <span className="text-xs opacity-60">(Bills)</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setDirection('receivables'); setGeneratedSuite(null); }}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                      direction === 'receivables'
-                        ? 'bg-white text-green-600 shadow-sm border border-slate-200'
-                        : 'text-slate-600 hover:text-slate-900'
+                    onClick={() => toggleDirection('receivables')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
+                      selectedDirections.has('receivables')
+                        ? 'bg-green-50 text-green-700 border-green-200 shadow-sm'
+                        : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:text-slate-900'
                     }`}
                   >
+                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
+                      selectedDirections.has('receivables') ? 'bg-green-600 border-green-600' : 'border-slate-300'
+                    }`}>
+                      {selectedDirections.has('receivables') && (
+                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
                     <ArrowDownLeft className="h-4 w-4" />
                     Receivables
-                    <span className="text-xs text-slate-400">(Invoices)</span>
+                    <span className="text-xs opacity-60">(Invoices)</span>
                   </button>
                 </div>
               </div>
 
               {/* Company Name Input */}
-              <div className={`flex flex-col sm:flex-row sm:items-center gap-4 pt-4 border-t border-slate-100 ${direction === 'receivables' ? 'bg-green-50/50 -mx-6 px-6 -mb-4 pb-4 rounded-b-lg' : ''}`}>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 pt-4 border-t border-slate-100">
                 <div className="flex-1">
                   <h3 className="font-medium text-slate-900">Your Company Name</h3>
                   <p className="text-sm text-slate-500">
-                    {direction === 'receivables'
-                      ? 'This will appear as the issuer on generated invoices (SALES INVOICE)'
-                      : 'This will appear as the recipient on received bills (VENDOR INVOICE)'
-                    }
+                    Your company that receives bills and issues invoices
                   </p>
                 </div>
                 <div className="sm:w-80">
@@ -421,7 +483,6 @@ function App() {
                     value={companyName}
                     onChange={(e) => { setCompanyName(e.target.value); setGeneratedSuite(null); }}
                     placeholder="Enter your company name"
-                    className={direction === 'receivables' ? 'border-green-200 focus:border-green-400 focus:ring-green-400' : ''}
                   />
                 </div>
               </div>
@@ -505,6 +566,11 @@ function App() {
                   <div className="flex items-baseline gap-2">
                     <span className="text-sm text-slate-500">Total:</span>
                     <span className="text-2xl font-bold text-blue-600">{getTotalCases()}</span>
+                    {selectedDirections.size > 1 && getCasesPerDirection() > 0 && (
+                      <span className="text-xs text-slate-400">
+                        ({getCasesPerDirection()} × {selectedDirections.size} directions)
+                      </span>
+                    )}
                   </div>
                   <Button
                     type="button"
@@ -604,11 +670,17 @@ function App() {
                       <h2 className="text-lg font-semibold text-slate-900">
                         Generated Results
                       </h2>
-                      <Badge variant={generatedSuite.direction === 'payables' ? 'info' : 'success'}>
+                      <Badge variant={generatedSuite.direction === 'payables' ? 'info' : generatedSuite.direction === 'receivables' ? 'success' : 'warning'}>
                         {generatedSuite.direction === 'payables' ? (
                           <><ArrowUpRight className="h-3 w-3 mr-1" /> Payables</>
-                        ) : (
+                        ) : generatedSuite.direction === 'receivables' ? (
                           <><ArrowDownLeft className="h-3 w-3 mr-1" /> Receivables</>
+                        ) : (
+                          <>
+                            <ArrowUpRight className="h-3 w-3" />
+                            <ArrowDownLeft className="h-3 w-3 mr-1" />
+                            Mixed
+                          </>
                         )}
                       </Badge>
                     </div>
@@ -680,10 +752,16 @@ function App() {
                       <div className="rounded-lg border border-slate-200 overflow-hidden bg-white">
                         <CollapsibleTrigger asChild>
                           <button className="flex w-full items-center gap-3 p-3 text-left hover:bg-slate-50 transition-colors">
+                            <div className={`w-1 h-12 rounded-full shrink-0 ${tc.direction === 'receivables' ? 'bg-green-500' : 'bg-blue-500'}`} />
                             <div className="flex-1 min-w-0">
-                              <Badge variant={getBadgeVariant(tc.type)} className="text-[10px] mb-1">
-                                {TEST_CASE_CONFIGS[tc.type].label}
-                              </Badge>
+                              <div className="flex items-center gap-2 mb-1">
+                                <Badge variant={getBadgeVariant(tc.type)} className="text-[10px]">
+                                  {TEST_CASE_CONFIGS[tc.type].label}
+                                </Badge>
+                                <span className={`text-[10px] font-medium ${tc.direction === 'receivables' ? 'text-green-600' : 'text-blue-600'}`}>
+                                  {tc.direction === 'receivables' ? '↓ IN' : '↑ OUT'}
+                                </span>
+                              </div>
                               <p className="text-sm font-medium text-slate-900 truncate">
                                 {tc.invoice.number}
                               </p>

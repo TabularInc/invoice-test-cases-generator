@@ -94,7 +94,7 @@ export interface GenerationRequest {
 export interface GeneratedTestSuite {
   id: string;
   createdAt: string;
-  direction: TransactionDirection;
+  direction: TransactionDirection | 'mixed'; // 'mixed' when both payables and receivables
   cases: TestCase[];
   csvContent: string;
 }
