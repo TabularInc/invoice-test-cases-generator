@@ -274,6 +274,7 @@ function generateTransaction(
   const transaction: BankTransaction = {
     date: formatDate(transactionDate),
     counterparty,
+    counterparty_iban: counterpartyCompany.iban,
     description,
     amount_eur: amount,
   };
@@ -384,10 +385,10 @@ function generateGroupPaymentTestCase(
 
 // Generate CSV content from transactions
 function generateCSV(testCases: TestCase[]): string {
-  const header = 'date;counterparty;description;amount_eur';
+  const header = 'date;counterparty;counterparty_iban;description;amount_eur';
   const rows = testCases.map((tc) => {
-    const { date, counterparty, description, amount_eur } = tc.transaction;
-    return `${date};${counterparty};${description};${amount_eur}`;
+    const { date, counterparty, counterparty_iban, description, amount_eur } = tc.transaction;
+    return `${date};${counterparty};${counterparty_iban};${description};${amount_eur}`;
   });
 
   // Sort by date

@@ -58,6 +58,7 @@ export interface Invoice {
 export interface BankTransaction {
   date: string;
   counterparty: string;
+  counterparty_iban: string;
   description: string;
   amount_eur: number;
 }
